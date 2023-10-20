@@ -32,6 +32,7 @@ Azan is an Islamic prayer times extension for Gnome Shell.
 - 07 : Added support for Gnome 3.36+
 - 08 : Add support for Gnome 43
 - 09 : Add support for Gnome 44
+- 10 : Add support for Gnome 45
 
 ### License
 
