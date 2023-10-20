@@ -7,8 +7,8 @@ function gmod(n, m) {
 function KuwaitiCalendar(adjust) {
 	var today = new Date();
 	if (adjust) {
-		adjustmili = 1000 * 60 * 60 * 24 * adjust;
-		todaymili = today.getTime() + adjustmili;
+		let adjustmili = 1000 * 60 * 60 * 24 * adjust;
+		let todaymili = today.getTime() + adjustmili;
 		today = new Date(todaymili);
 	}
 	let day = today.getDate();
@@ -97,3 +97,5 @@ function writeIslamicDate(adjustment) {
 var outputIslamicDate = wdNames[iDate[4]] + ", " + iDate[5] + " " + iMonthNames[iDate[6]] + " " + iDate[7] + " AH";
 	return outputIslamicDate;
 }
+
+export {gmod, KuwaitiCalendar, writeIslamicDate}

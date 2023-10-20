@@ -1,30 +1,27 @@
-const Geoclue = imports.gi.Geoclue;
-const St = imports.gi.St;
-const Main = imports.ui.main;
-const Soup = imports.gi.Soup;
-const Mainloop = imports.mainloop;
-const GObject = imports.gi.GObject;
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
-const Clutter = imports.gi.Clutter;
-const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
-const MessageTray = imports.ui.messageTray;
-const Util = imports.misc.util;
-const PermissionStore = imports.misc.permissionStore;
+import Geoclue from 'gi://Geoclue';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as PermissionStore from 'resource:///org/gnome/shell/misc/permissionStore.js';
 
-const Extension = imports.misc.extensionUtils.getCurrentExtension();
+import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-const PrayTimes = Extension.imports.PrayTimes;
-const HijriCalendarKuwaiti = Extension.imports.HijriCalendarKuwaiti;
-const Convenience = Extension.imports.convenience;
-const PrefsKeys = Extension.imports.prefs_keys;
+import * as PrayTimes from './PrayTimes.js';
+import * as HijriCalendarKuwaiti from './HijriCalendarKuwaiti.js';
+import * as PrefsKeys from './prefs_keys.js';
+
 
 const Azan = GObject.registerClass(
 class Azan extends PanelMenu.Button {
 
   _init() {
     super._init(0.5, _('Azan'));
+
+    this.uuid = Extension.lookupByURL(import.meta.url).uuid;
 
     this.indicatorText = new St.Label({text: _("Loading..."), y_align: Clutter.ActorAlign.CENTER});
     this.add_child(this.indicatorText);
@@ -40,7 +37,7 @@ class Azan extends PanelMenu.Button {
     this._opt_timeformat12 = false;
     this._opt_concise_list = null;
 
-    this._settings = Convenience.getSettings();
+    this._settings = Extension.lookupByURL(import.meta.url).getSettings();
     this._bindSettings();
     this._loadSettings();
 
@@ -116,7 +113,7 @@ class Azan extends PanelMenu.Button {
     this.prefs_b = new St.Button ({ child: new St.Icon ({ icon_name: 'preferences-system-symbolic', icon_size: 30 }), style_class: 'prefs_s_action'});
     
     this.prefs_b.connect ('clicked', () => {
-    	Util.spawn(["gnome-extensions", "prefs", Extension.metadata.uuid]);
+        Extension.lookupByURL(import.meta.url).openPreferences();
     });
     
     this.prefs_s.actor.add(this.prefs_b);
@@ -126,6 +123,7 @@ class Azan extends PanelMenu.Button {
     
     this.menu.addMenuItem(this.prefs_s);
 
+    this._updateLabel();
     this._updateLabelPeriodic();
     this._updatePrayerVisibility();
 
@@ -145,7 +143,7 @@ class Azan extends PanelMenu.Button {
         });
     });
   }
-    
+
   _startGClueService() {
     if (this._gclueStarting)
         return;
@@ -165,7 +163,7 @@ class Azan extends PanelMenu.Button {
             this._updateLocationMonitoring();
         });
   }
-  
+
   _onPermStoreChanged(proxy, sender, params) {
     let [table, id, deleted, data, perms] = params;
 
@@ -288,20 +286,17 @@ class Azan extends PanelMenu.Button {
 
   _updateLabelPeriodic() {
       let currentSeconds = new Date().getSeconds();
-      if (currentSeconds === 0) {
-         this._periodicTimeoutId = Mainloop.timeout_add_seconds(60,
-         this._updateLabelPeriodic.bind(this));
-      } else {
-         this._periodicTimeoutId = Mainloop.timeout_add_seconds(60 - currentSeconds,
-         this._updateLabelPeriodic.bind(this));
-      }
-      
-      this._updateLabel();
+
+      setTimeout(() => {
+          this._updateLabel();
+          this._periodicIntervalId = setInterval(() => {
+              this._updateLabel();
+          }, 60_000);
+      }, (60 - currentSeconds) * 1_000);
   }
 
   _updateLabel() {
       let displayDate = GLib.DateTime.new_now_local();
-      let dateFormattedFull = displayDate.format(this._dateFormatFull);
 
       let myLocation = [this._opt_latitude, this._opt_longitude];
       let myTimezone = this._opt_timezone;
@@ -327,7 +322,6 @@ class Azan extends PanelMenu.Button {
       let isTimeForPraying = false;
       for (let prayerId in this._timeNames) {
 
-          let prayerName = this._timeNames[prayerId];
           let prayerTime = timesStr[prayerId];
 
           this._prayItems[prayerId].label.text = prayerTime;
@@ -364,15 +358,15 @@ class Azan extends PanelMenu.Button {
       };
 
       let hijriDate = HijriCalendarKuwaiti.KuwaitiCalendar(this._opt_adjustment);
-      
+
       let outputIslamicDate = this._formatHijriDate(hijriDate);
-      
+
       this._dateMenuItem.label.text = outputIslamicDate;
-      
+
       if ( (minDiffMinutes === 15) || (minDiffMinutes === 10) || (minDiffMinutes === 5) ) {
          Main.notify(_(minDiffMinutes + " minutes remaining until " + this._timeNames[nearestPrayerId]) + " prayer.", _("Prayer time : " + timesStr[nearestPrayerId]));
       }
-          
+
       if (isTimeForPraying) {
           Main.notify(_("It's time for the " + this._timeNames[nearestPrayerId]) + " prayer.", _("Prayer time : " + timesStr[nearestPrayerId]));
           this.indicatorText.set_text(_("It's time for " + this._timeNames[nearestPrayerId]));
@@ -411,23 +405,20 @@ class Azan extends PanelMenu.Button {
 
     	this.menu.removeAll();
 
-			if (this._periodicTimeoutId) {
-        Mainloop.source_remove(this._periodicTimeoutId);
+			if (this._periodicIntervalId) {
+                            clearTimeout(this._periodicIntervalId);
   		}
-		}
+    }
 });
 
-let azan;
-
-function init() {
-}
-
-function enable() {
-  azan = new Azan();
-  Main.panel.addToStatusArea('azan', azan, 1, 'center');
-}
-
-function disable() {
-	azan.stop();
-  azan.destroy();
+export default class AzanExtension extends Extension {
+  enable() {
+    this.azan = new Azan();
+    Main.panel.addToStatusArea('azan', this.azan, 1, 'center');
+  }
+  
+  disable() {
+    this.azan.stop();
+    this.azan.destroy();
+  }
 }
