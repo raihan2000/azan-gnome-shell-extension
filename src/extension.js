@@ -286,13 +286,21 @@ class Azan extends PanelMenu.Button {
 
   _updateLabelPeriodic() {
       let currentSeconds = new Date().getSeconds();
+      if (currentSeconds === 0) {
+          this._periodicTimeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 60, () => {
+              this._updateLabelPeriodic();
 
-      setTimeout(() => {
-          this._updateLabel();
-          this._periodicIntervalId = setInterval(() => {
-              this._updateLabel();
-          }, 60_000);
-      }, (60 - currentSeconds) * 1_000);
+              return GLib.SOURCE_REMOVE;
+          });
+      } else {
+          this._periodicTimeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 60 - currentSeconds, () => {
+              this._updateLabelPeriodic();
+
+              return GLib.SOURCE_REMOVE;
+          });
+      }
+      
+      this._updateLabel();
   }
 
   _updateLabel() {
@@ -402,12 +410,11 @@ class Azan extends PanelMenu.Button {
   	}
   
     stop() {
+        this.menu.removeAll();
 
-    	this.menu.removeAll();
-
-			if (this._periodicIntervalId) {
-                            clearTimeout(this._periodicIntervalId);
-  		}
+        if (this._periodicTimeoutId) {
+            GLib.Source.remove(this._periodicTimeoutId);
+        }
     }
 });
 
@@ -422,3 +429,5 @@ export default class AzanExtension extends Extension {
     this.azan.destroy();
   }
 }
+
+
