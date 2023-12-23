@@ -1,28 +1,24 @@
-const GObject = imports.gi.GObject;
-const Gtk = imports.gi.Gtk;
-const Gio = imports.gi.Gio;
-const Params = imports.misc.params;
-const Me = imports.misc.extensionUtils.getCurrentExtension();
-const PrayTimes = Me.imports.PrayTimes;
-const Convenience = Me.imports.convenience;
-const PrefsKeys = Me.imports.prefs_keys;
-const Config = imports.misc.config;
+import GObject from 'gi://GObject';
+import Gtk from 'gi://Gtk';
+import Gio from 'gi://Gio';
+import * as Params from 'resource:///org/gnome/Shell/Extensions/js/misc/params.js';
+import * as PrayTimes from './PrayTimes.js';
+import * as PrefsKeys from './prefs_keys.js';
 
-const IS_3_XX_SHELL_VERSION = Config.PACKAGE_VERSION.startsWith("3");
+import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-const PagePrefsGrid = new GObject.Class({
-    Name: 'Page.Prefs.Grid',
-    GTypeName: 'PagePrefsGrid',
-    Extends: Gtk.Grid,
+const PagePrefsGrid = GObject.registerClass({
+   GTypeName: 'PagePrefsGrid',
+}, class PagePrefsGrid extends Gtk.Grid {
 
-    _init: function(params) {
-        this.parent(params);
-        this._settings = Convenience.getSettings();
+    constructor(params) {
+        super(params);
+        this._settings = ExtensionPreferences.lookupByURL(import.meta.url).getSettings();
         this.margin = this.row_spacing = this.column_spacing = 10;
         this._rownum = 0;
-    },
+    }
 
-    add_entry: function(text, key) {
+    add_entry(text, key) {
         let item = new Gtk.Entry({
             hexpand: false
         });
@@ -30,9 +26,9 @@ const PagePrefsGrid = new GObject.Class({
         this._settings.bind(key, item, 'text', Gio.SettingsBindFlags.DEFAULT);
 
         return this.add_row(text, item);
-    },
+    }
 
-    add_shortcut: function(text, settings_key) {
+    add_shortcut(text, settings_key) {
         let item = new Gtk.Entry({
             hexpand: false
         });
@@ -47,9 +43,9 @@ const PagePrefsGrid = new GObject.Class({
         });
 
         return this.add_row(text, item);
-    },
+    }
 
-    add_boolean: function(text, key, callback) {
+    add_boolean(text, key, callback) {
         let item = new Gtk.Switch({
             active: this._settings.get_boolean(key)
         });
@@ -60,9 +56,9 @@ const PagePrefsGrid = new GObject.Class({
 
         this._settings.bind(key, item, 'active', Gio.SettingsBindFlags.DEFAULT);
         return this.add_row(text, item);
-    },
+    }
 
-    add_combo: function(text, key, list, type) {
+    add_combo(text, key, list, type) {
         let item = new Gtk.ComboBoxText();
 
         for(let i = 0; i < list.length; i++) {
@@ -96,9 +92,9 @@ const PagePrefsGrid = new GObject.Class({
         });
 
         return this.add_row(text, item);
-    },
+    }
 
-    add_spin: function(label, key, adjustment_properties, spin_properties) {
+    add_spin(label, key, adjustment_properties, spin_properties) {
         adjustment_properties = Params.parse(adjustment_properties, {
             lower: 0,
             upper: 100,
@@ -128,34 +124,24 @@ const PagePrefsGrid = new GObject.Class({
         });
 
         return this.add_row(label, spin_button, true);
-    },
+    }
 
-    add_row: function(text, widget, wrap) {
+    add_row(text, widget, wrap) {
         let label;
-        if (IS_3_XX_SHELL_VERSION){
-            label = new Gtk.Label({
+        label= new Gtk.Label({
             label: text,
             hexpand: true,
             halign: Gtk.Align.START
-        	});
-        	label.set_line_wrap(wrap || false);
-        
-        } else {
-        	label= new Gtk.Label({
-            label: text,
-            hexpand: true,
-            halign: Gtk.Align.START
-        	});
-        }
+        });
 
         this.attach(label, 0, this._rownum, 1, 1); // col, row, colspan, rowspan
         this.attach(widget, 1, this._rownum, 1, 1);
         this._rownum++;
 
         return widget;
-    },
+    }
 
-    add_item: function(widget, col, colspan, rowspan) {
+    add_item(widget, col, colspan, rowspan) {
         this.attach(
             widget,
             col || 0,
@@ -166,9 +152,9 @@ const PagePrefsGrid = new GObject.Class({
         this._rownum++;
 
         return widget;
-    },
+    }
 
-    add_range: function(label, key, range_properties) {
+    add_range(label, key, range_properties) {
         range_properties = Params.parse(range_properties, {
             min: 0,
             max: 100,
@@ -206,15 +192,14 @@ const PagePrefsGrid = new GObject.Class({
     }
 });
 
-const AzanPrefsWidget = new GObject.Class({
-    Name: 'Azan.Prefs.Widget',
+const AzanPrefsWidget = GObject.registerClass({
     GTypeName: 'AzanPrefsWidget',
-    Extends: Gtk.Box,
+}, class AzanPrefsWidget extends Gtk.Box {
 
-    _init: function(params) {
-        this.parent(params);
+    constructor(params) {
+        super(params);
         this.set_orientation(Gtk.Orientation.VERTICAL);
-        this._settings = Convenience.getSettings();
+        this._settings = ExtensionPreferences.lookupByURL(import.meta.url).getSettings();
 
         let stack = new Gtk.Stack({
             transition_type: Gtk.StackTransitionType.SLIDE_LEFT_RIGHT,
@@ -222,42 +207,25 @@ const AzanPrefsWidget = new GObject.Class({
         });
 
         let stack_switcher
-        if (IS_3_XX_SHELL_VERSION){
-            stack_switcher = new Gtk.StackSwitcher({
-            margin_left: 5,
+        stack_switcher = new Gtk.StackSwitcher({
+            margin_start: 5,
+            margin_end: 5,
             margin_top: 5,
             margin_bottom: 5,
-            margin_right: 5,
             stack: stack
-        	});
-        	this._init_stack(stack);
-        	this.add(stack_switcher);
-        	this.add(stack);
-        } else {
-        	stack_switcher = new Gtk.StackSwitcher({
-        	margin_start: 5,
-        	margin_end: 5,
-        	margin_top: 5,
-        	margin_bottom: 5,
-            stack: stack
-        	});
-        	this._init_stack(stack);
-        	this.append(stack_switcher);
-        	this.append(stack);
-        }
-    },
+        });
+        this._init_stack(stack);
+        this.append(stack_switcher);
+        this.append(stack);
+    }
 
-    _get_tab_config: function() {
+    _get_tab_config() {
 
         let calculation_page;
-        if (IS_3_XX_SHELL_VERSION){
-        	calculation_page = new PagePrefsGrid();
-        } else {
-        	calculation_page = new PagePrefsGrid();
-        	calculation_page.set_margin_top(10);
-        	calculation_page.set_margin_start(5);
-        	calculation_page.set_margin_end(5);
-		}
+        calculation_page = new PagePrefsGrid();
+        calculation_page.set_margin_top(10);
+        calculation_page.set_margin_start(5);
+        calculation_page.set_margin_end(5);
 
         calculation_page.add_combo('Calculation method',
           PrefsKeys.CALCULATION_METHOD,
@@ -283,14 +251,10 @@ const AzanPrefsWidget = new GObject.Class({
         });
 
         let location_page;
-        if (IS_3_XX_SHELL_VERSION){
-        	location_page = new PagePrefsGrid();
-        } else {
-        	location_page = new PagePrefsGrid();
-        	location_page.set_margin_top(10);
-        	location_page.set_margin_start(5);
-        	location_page.set_margin_end(5);
-		}
+        location_page = new PagePrefsGrid();
+        location_page.set_margin_top(10);
+        location_page.set_margin_start(5);
+        location_page.set_margin_end(5);
 
         this.latitude_box = location_page.add_spin('Latitude', PrefsKeys.LATITUDE, {
             lower: -90.0000,
@@ -355,14 +319,10 @@ const AzanPrefsWidget = new GObject.Class({
         ], 'string');
 
         let display_page;
-        if (IS_3_XX_SHELL_VERSION){
-        	display_page = new PagePrefsGrid();
-        } else {
-        	display_page = new PagePrefsGrid();
-        	display_page.set_margin_top(10);
-        	display_page.set_margin_start(5);
-        	display_page.set_margin_end(5);
-		}
+        display_page = new PagePrefsGrid();
+        display_page.set_margin_top(10);
+        display_page.set_margin_start(5);
+        display_page.set_margin_end(5);
 
         this.time_format_12 = display_page.add_boolean('AM/PM time format', PrefsKeys.TIME_FORMAT_12);
 
@@ -387,9 +347,9 @@ const AzanPrefsWidget = new GObject.Class({
         ];
 
         return pages;
-    },
+    }
 
-    _init_stack: function(stack) {
+    _init_stack(stack) {
         let config = this._get_tab_config();
         for (let index in config) {
             stack.add_titled(config[index].page, config[index].name, config[index].name);
@@ -397,17 +357,15 @@ const AzanPrefsWidget = new GObject.Class({
     }
 });
 
-function init() {
-
-}
-
 function buildPrefsWidget() {
     let widget = new AzanPrefsWidget();
-    if (IS_3_XX_SHELL_VERSION){
-    	widget.show_all();
-    } else {
-    	widget.show();
-    }
+    widget.show();
 
     return widget;
+}
+
+export default class AzanExtensionPreferences extends ExtensionPreferences {
+    getPreferencesWidget() {
+        return buildPrefsWidget();
+    }
 }

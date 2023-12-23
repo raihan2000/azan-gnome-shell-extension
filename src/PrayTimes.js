@@ -85,7 +85,6 @@ function getMethods() {
 
 function PrayTimes(method) {
 
-
 	//------------------------ Constants --------------------------
 	var
 
@@ -578,3 +577,5 @@ var DMath = {
 
 
 var prayTimes = new PrayTimes();
+
+export {PrayTimes, prayTimes, getMethods}
